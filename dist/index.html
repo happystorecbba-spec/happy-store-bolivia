@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Happy Store: ofertas, descuentos y catálogo de teléfonos y accesorios tecnológicos.">
+  <meta name="theme-color" content="#14191D">
+  <title>Happy Store | Tecnología y ofertas</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="announcement" role="status">
+    <span>Ofertas actualizadas</span>
+    <i></i>
+    <span>Consulta stock antes de comprar</span>
+    <i></i>
+    <span>Atención personalizada</span>
+  </div>
+
+  <header class="site-header">
+    <a class="brand" href="#inicio" aria-label="Happy Store, ir al inicio">
+      <img src="assets/happy-store-logo.png" alt="Happy Store">
+    </a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menú</button>
+    <nav id="primary-nav" class="primary-nav" aria-label="Navegación principal">
+      <a href="#inicio" data-route="inicio">Inicio</a>
+      <a href="#catalogo" data-route="catalogo">Catálogo</a>
+      <a href="#contacto" data-route="contacto">Contacto</a>
+      <button class="nav-cta" type="button" data-go="catalogo">Ver productos</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page active" data-page="inicio" aria-labelledby="home-title">
+      <div class="promo-hero shell">
+        <div class="hero-copy">
+          <span class="eyebrow">OFERTAS HAPPY STORE</span>
+          <h1 id="home-title">Tecnología que quieres.<br><span>Precios que sorprenden.</span></h1>
+          <p>Encuentra aquí únicamente productos con descuentos activos, promociones especiales y oportunidades por tiempo limitado.</p>
+          <div class="hero-actions">
+            <button class="button button-primary" type="button" data-go="catalogo">Explorar catálogo</button>
+            <a class="button button-ghost" href="#ofertas">Ver descuentos</a>
+          </div>
+          <div class="trust-row" aria-label="Beneficios de compra">
+            <span>✓ Stock actualizado</span>
+            <span>✓ Atención directa</span>
+            <span>✓ Precios referenciales</span>
+          </div>
+        </div>
+        <div class="deal-visual" aria-hidden="true">
+          <div class="deal-orbit orbit-one"></div>
+          <div class="deal-orbit orbit-two"></div>
+          <div class="phone-shell"><div class="phone-screen"><span>OFERTA</span><strong>%</strong></div></div>
+          <div class="floating-tag tag-one">NUEVO</div>
+          <div class="floating-tag tag-two">-20%</div>
+        </div>
+      </div>
+
+      <section id="ofertas" class="offers-section shell" aria-labelledby="offers-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">OPORTUNIDADES ACTIVAS</span>
+            <h2 id="offers-title">Ofertas y descuentos</h2>
+          </div>
+          <button class="text-link" type="button" data-go="catalogo">Ver catálogo completo <span>→</span></button>
+        </div>
+        <div id="offers-grid" class="product-grid"></div>
+        <div id="offers-empty" class="empty-state">
+          <div class="empty-icon">%</div>
+          <h3>Las próximas ofertas están por llegar</h3>
+          <p>Cuando carguemos productos con descuento, aparecerán automáticamente en esta página.</p>
+        </div>
+      </section>
+
+      <section class="discount-strip" aria-label="Aviso de promociones">
+        <div class="shell discount-inner">
+          <span>DESCUENTOS</span>
+          <strong>Promociones claras, stock real y atención directa.</strong>
+          <button type="button" data-go="catalogo">Ir al catálogo</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="page" data-page="catalogo" aria-labelledby="catalog-title">
+      <div class="catalog-hero">
+        <div class="shell">
+          <span class="eyebrow eyebrow-light">CATÁLOGO HAPPY STORE</span>
+          <h1 id="catalog-title">Encuentra tu próxima tecnología</h1>
+          <p>Busca por nombre, filtra por categoría o marca y consulta cada producto directamente.</p>
+        </div>
+      </div>
+
+      <div class="catalog-layout shell">
+        <aside class="filters" aria-label="Filtros del catálogo">
+          <div class="filter-title">
+            <strong>Filtrar productos</strong>
+            <button id="clear-filters" type="button">Limpiar</button>
+          </div>
+          <label class="field">
+            <span>Buscar</span>
+            <input id="search-input" type="search" placeholder="Nombre o modelo">
+          </label>
+          <label class="field">
+            <span>Categoría</span>
+            <select id="category-filter"><option value="">Todas</option></select>
+          </label>
+          <label class="field">
+            <span>Marca</span>
+            <select id="brand-filter"><option value="">Todas</option></select>
+          </label>
+          <label class="check-field">
+            <input id="offer-filter" type="checkbox">
+            <span>Solo productos en oferta</span>
+          </label>
+        </aside>
+
+        <section class="catalog-results" aria-live="polite">
+          <div class="results-toolbar">
+            <p id="results-count">0 productos</p>
+            <label>
+              <span class="sr-only">Ordenar productos</span>
+              <select id="sort-select">
+                <option value="featured">Orden recomendado</option>
+                <option value="price-asc">Precio: menor a mayor</option>
+                <option value="price-desc">Precio: mayor a menor</option>
+                <option value="name">Nombre A-Z</option>
+              </select>
+            </label>
+          </div>
+          <div id="catalog-grid" class="product-grid"></div>
+          <div id="catalog-empty" class="empty-state catalog-empty">
+            <div class="empty-icon phone-empty"></div>
+            <h3>Estamos preparando el catálogo</h3>
+            <p>Los productos se cargarán cuando la estructura final esté aprobada.</p>
+          </div>
+          <nav id="pagination" class="pagination" aria-label="Paginación del catálogo"></nav>
+        </section>
+      </div>
+    </section>
+
+    <section class="page" data-page="contacto" aria-labelledby="contact-title">
+      <div class="contact-hero">
+        <div class="shell">
+          <span class="eyebrow eyebrow-light">HAPPY STORE COCHABAMBA</span>
+          <h1 id="contact-title">Hablemos de tu próxima compra</h1>
+          <p>Consulta disponibilidad, precio actualizado y promociones directamente con nuestro equipo.</p>
+        </div>
+      </div>
+      <div class="contact-layout shell">
+        <section class="contact-card contact-card-featured">
+          <span class="eyebrow">ATENCIÓN DIRECTA</span>
+          <h2>Estamos para ayudarte</h2>
+          <p>Escríbenos para confirmar el stock real antes de visitar la tienda.</p>
+          <a id="contact-whatsapp" class="button button-primary" href="#">Consultar por WhatsApp</a>
+        </section>
+        <section class="contact-card">
+          <span class="contact-label">Propietario</span>
+          <strong id="contact-owner">Franklin Fernando Condori Gregorio</strong>
+          <span class="contact-label">Correo</span>
+          <a id="contact-email" href="mailto:Happystorecbba@gmail.com">Happystorecbba@gmail.com</a>
+          <span class="contact-label">Teléfono de tienda</span>
+          <a id="contact-phone" href="tel:+59164000633">64000633</a>
+        </section>
+        <section class="contact-card">
+          <span class="contact-label">Visítanos</span>
+          <strong id="contact-address">Calle Punata entre San Martín y Lanza, Shopping Garoni, 2do piso, oficina 10-C</strong>
+          <span class="contact-label">TikTok</span>
+          <a id="contact-tiktok" href="https://www.tiktok.com/@happystorecbba1" target="_blank" rel="noopener">@happystorecbba1</a>
+        </section>
+      </div>
+    </section>
+
+    <section class="page" data-page="admin" aria-labelledby="admin-title">
+      <div class="admin-hero">
+        <div class="shell">
+          <span class="eyebrow eyebrow-light">ADMINISTRACIÓN</span>
+          <h1 id="admin-title">Gestión del catálogo</h1>
+          <p>Prepara productos, precios, stock y promociones antes de la carga definitiva.</p>
+        </div>
+      </div>
+
+      <div id="admin-connection" class="shell admin-notice">
+        <strong>Conexión de inventario</strong>
+        <span id="connection-status">Verificando conexión segura con Supabase…</span>
+      </div>
+
+      <section id="admin-auth" class="shell admin-auth hidden">
+        <div>
+          <span class="eyebrow">ACCESO PROTEGIDO</span>
+          <h2>Ingresar a Administración</h2>
+          <p>Recibirás un enlace seguro en el correo autorizado de Happy Store. No necesitas crear ni guardar otra contraseña.</p>
+        </div>
+        <form id="login-form">
+          <label class="field"><span>Correo autorizado</span><input id="login-email" type="email" value="Happystorecbba@gmail.com" required></label>
+          <button class="button button-primary" type="submit">Enviar enlace de acceso</button>
+        </form>
+      </section>
+
+      <div id="admin-content" class="admin-content hidden">
+      <div class="admin-session shell"><span id="admin-user"></span><button id="logout-button" class="text-button" type="button">Cerrar sesión</button></div>
+      <div class="admin-layout shell">
+        <section class="admin-card">
+          <div class="admin-card-heading">
+            <div><span class="eyebrow">PRODUCTOS</span><h2 id="form-title">Añadir producto</h2></div>
+            <button id="cancel-edit" class="text-button hidden" type="button">Cancelar edición</button>
+          </div>
+          <form id="product-form" class="product-form">
+            <input id="product-id" type="hidden">
+            <label class="field field-wide"><span>Nombre del producto *</span><input id="product-name" required placeholder="Ej. Smartphone Nova X"></label>
+            <label class="field"><span>Marca *</span><input id="product-brand" required placeholder="Ej. Xiaomi"></label>
+            <label class="field"><span>Categoría *</span><input id="product-category" required placeholder="Ej. Smartphones"></label>
+            <label class="field"><span>Precio actual (Bs) *</span><input id="product-price" required min="0" step="0.01" type="number" placeholder="0,00"></label>
+            <label class="field"><span>Precio anterior (Bs)</span><input id="product-compare" min="0" step="0.01" type="number" placeholder="Opcional"></label>
+            <label class="field"><span>Stock exacto (unidades) *</span><input id="product-stock" required min="0" step="1" type="number" value="0"></label>
+            <label class="field"><span>Imagen (URL)</span><input id="product-image" type="url" placeholder="https://..."></label>
+            <label class="field field-wide"><span>Descripción</span><textarea id="product-description" rows="4" placeholder="Características principales del producto"></textarea></label>
+            <label class="check-field field-wide"><input id="product-featured" type="checkbox"><span>Mostrar como producto destacado</span></label>
+            <button class="button button-primary field-wide" type="submit">Guardar producto</button>
+          </form>
+        </section>
+
+        <aside class="admin-side">
+          <section class="admin-card">
+            <span class="eyebrow">CONFIGURACIÓN</span>
+            <h2>Datos de contacto</h2>
+            <form id="settings-form" class="settings-form">
+              <label class="field"><span>WhatsApp</span><input id="setting-whatsapp" inputmode="tel" placeholder="59170000000"></label>
+              <label class="field"><span>Instagram</span><input id="setting-instagram" placeholder="@happystore"></label>
+              <label class="field"><span>TikTok</span><input id="setting-tiktok" placeholder="@happystorecbba1"></label>
+              <label class="field"><span>Correo de tienda</span><input id="setting-email" type="email"></label>
+              <label class="field"><span>Correo del propietario</span><input id="setting-owner-email" type="email"></label>
+              <label class="field"><span>Teléfono de tienda</span><input id="setting-phone" inputmode="tel"></label>
+              <label class="field"><span>Propietario</span><input id="setting-owner"></label>
+              <label class="field"><span>Dirección</span><textarea id="setting-address" rows="3"></textarea></label>
+              <label class="field"><span>Mensaje del catálogo</span><textarea id="setting-note" rows="3" placeholder="Precios referenciales sujetos a variación."></textarea></label>
+              <button class="button button-secondary" type="submit">Guardar configuración</button>
+            </form>
+          </section>
+          <section class="admin-card data-card">
+            <span class="eyebrow">RESPALDO</span>
+            <h2>Importar o exportar</h2>
+            <p>Descarga los datos preparados o restaura un archivo JSON.</p>
+            <div class="data-actions">
+              <button id="export-data" class="button button-ghost-dark" type="button">Exportar</button>
+              <label class="button button-ghost-dark file-button">Importar<input id="import-data" type="file" accept="application/json"></label>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <section class="shell admin-products">
+        <div class="section-heading compact-heading">
+          <div><span class="eyebrow">INVENTARIO</span><h2>Productos cargados</h2></div>
+          <span id="admin-count" class="count-badge">0 productos</span>
+        </div>
+        <div id="admin-list" class="admin-list"></div>
+        <div id="admin-empty" class="empty-state small-empty"><h3>Aún no hay productos</h3><p>Usa el formulario superior para realizar la primera carga.</p></div>
+      </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div class="footer-brand"><img src="assets/happy-store-logo.png" alt="Happy Store"><p>Tecnología, ofertas y atención directa.</p></div>
+      <div><strong>Navegación</strong><a href="#inicio">Ofertas</a><a href="#catalogo">Catálogo</a><a href="#contacto">Contacto</a></div>
+      <div><strong>Información</strong><p id="catalog-note">Precios referenciales sujetos a variación.</p><a id="footer-email" href="mailto:Happystorecbba@gmail.com">Happystorecbba@gmail.com</a><a id="tiktok-link" href="#">@happystorecbba1</a><a id="instagram-link" href="#" hidden>Instagram</a></div>
+      <div><strong>Gestión</strong><a href="#admin">Administración</a><small>Sitio desarrollado por Nodum Core</small></div>
+    </div>
+  </footer>
+
+  <div id="product-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-panel">
+      <button class="modal-close" type="button" aria-label="Cerrar" data-close-modal>×</button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

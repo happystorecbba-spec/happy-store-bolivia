@@ -8,15 +8,20 @@ create table if not exists public.products (
   name text not null,
   brand text not null,
   category text not null,
-  price numeric(12,2) not null check (price >= 0),
+  price numeric(12,2) check (price is null or price >= 0),
   compare_price numeric(12,2) check (compare_price is null or compare_price >= 0),
-  stock integer not null default 0 check (stock >= 0),
+  stock integer check (stock is null or stock >= 0),
   image_url text,
   description text,
   featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Permite cargar primero el catálogo y completar precio/stock desde Administración.
+alter table public.products alter column price drop not null;
+alter table public.products alter column stock drop default;
+alter table public.products alter column stock drop not null;
 
 create table if not exists public.store_settings (
   id integer primary key default 1 check (id = 1),
@@ -59,6 +64,10 @@ insert into public.store_settings (
 alter table public.products enable row level security;
 alter table public.store_settings enable row level security;
 
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do update set public = true;
+
 drop policy if exists "Public can read products" on public.products;
 create policy "Public can read products" on public.products for select using (true);
 
@@ -86,3 +95,32 @@ with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.
 drop policy if exists "Happy Store admin can insert settings" on public.store_settings;
 create policy "Happy Store admin can insert settings" on public.store_settings for insert to authenticated
 with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+
+drop policy if exists "Public can view product images" on storage.objects;
+create policy "Public can view product images" on storage.objects for select
+using (bucket_id = 'product-images');
+
+drop policy if exists "Happy Store admin can upload product images" on storage.objects;
+create policy "Happy Store admin can upload product images" on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'product-images'
+  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+);
+
+drop policy if exists "Happy Store admin can update product images" on storage.objects;
+create policy "Happy Store admin can update product images" on storage.objects for update to authenticated
+using (
+  bucket_id = 'product-images'
+  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+)
+with check (
+  bucket_id = 'product-images'
+  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+);
+
+drop policy if exists "Happy Store admin can delete product images" on storage.objects;
+create policy "Happy Store admin can delete product images" on storage.objects for delete to authenticated
+using (
+  bucket_id = 'product-images'
+  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+);

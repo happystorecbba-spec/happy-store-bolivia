@@ -1,7 +1,7 @@
-const PRODUCT_KEY = "happy-store-products-v1";
 const SETTINGS_KEY = "happy-store-settings-v1";
 const PAGE_SIZE = 9;
 const AUTHORIZED_EMAIL = "happystorecbba@gmail.com";
+const PRODUCT_BUCKET = "product-images";
 
 const DEFAULT_SETTINGS = {
   id: 1,
@@ -21,7 +21,7 @@ const cloudEnabled = Boolean(config.supabaseUrl && config.supabaseAnonKey && win
 const db = cloudEnabled ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
 
 const state = {
-  products: readJSON(PRODUCT_KEY, []),
+  products: [],
   settings: { ...DEFAULT_SETTINGS, ...readJSON(SETTINGS_KEY, {}) },
   session: null,
   query: "",
@@ -33,6 +33,8 @@ const state = {
   editingId: null
 };
 
+try { localStorage.removeItem("happy-store-products-v1"); } catch {}
+
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -42,8 +44,28 @@ function readJSON(key, fallback) {
 }
 
 function saveLocal() {
-  localStorage.setItem(PRODUCT_KEY, JSON.stringify(state.products));
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+}
+
+function storageObjectPath(url = "") {
+  const marker = `/storage/v1/object/public/${PRODUCT_BUCKET}/`;
+  const index = url.indexOf(marker);
+  return index === -1 ? "" : decodeURIComponent(url.slice(index + marker.length));
+}
+
+async function uploadProductImage(file, productId) {
+  if (!db) throw new Error("Supabase no está disponible.");
+  if (!file.type.startsWith("image/")) throw new Error("Selecciona una imagen válida.");
+  if (file.size > 8 * 1024 * 1024) throw new Error("La imagen no debe superar 8 MB.");
+  const extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = `${productId}/${Date.now()}.${extension}`;
+  const { error } = await db.storage.from(PRODUCT_BUCKET).upload(path, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false
+  });
+  if (error) throw error;
+  return db.storage.from(PRODUCT_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 function money(value) {
@@ -55,7 +77,7 @@ function escapeHTML(value = "") {
 }
 
 function isOffer(product) {
-  return Number(product.comparePrice) > Number(product.price) && Number(product.price) >= 0;
+  return product.price !== null && product.price !== "" && Number(product.comparePrice) > Number(product.price) && Number(product.price) >= 0;
 }
 
 function discount(product) {
@@ -64,7 +86,10 @@ function discount(product) {
 }
 
 function stockInfo(product) {
-  const stock = Math.max(0, Number(product.stock || 0));
+  if (product.stock === null || product.stock === "" || product.stock === undefined) {
+    return { label: "Por confirmar", detail: "Consultar stock", className: "stock-pending" };
+  }
+  const stock = Math.max(0, Number(product.stock));
   if (stock === 0) return { label: "Agotado", detail: "0 unidades", className: "stock-out" };
   if (stock <= 3) return { label: "Stock bajo", detail: `${stock} ${stock === 1 ? "unidad" : "unidades"}`, className: "stock-low" };
   return { label: "Disponible", detail: `${stock} unidades`, className: "stock-ok" };
@@ -76,9 +101,9 @@ function fromDbProduct(row) {
     name: row.name || "",
     brand: row.brand || "",
     category: row.category || "",
-    price: Number(row.price || 0),
-    comparePrice: Number(row.compare_price || 0),
-    stock: Number(row.stock || 0),
+    price: row.price === null ? null : Number(row.price),
+    comparePrice: row.compare_price === null ? null : Number(row.compare_price),
+    stock: row.stock === null ? null : Number(row.stock),
     image: row.image_url || "",
     description: row.description || "",
     featured: Boolean(row.featured),
@@ -92,9 +117,9 @@ function toDbProduct(product) {
     name: product.name,
     brand: product.brand,
     category: product.category,
-    price: Number(product.price),
-    compare_price: Number(product.comparePrice || 0) || null,
-    stock: Math.max(0, Number(product.stock || 0)),
+    price: product.price === null || product.price === "" ? null : Number(product.price),
+    compare_price: product.comparePrice === null || product.comparePrice === "" ? null : Number(product.comparePrice),
+    stock: product.stock === null || product.stock === "" ? null : Math.max(0, Number(product.stock)),
     image_url: product.image || null,
     description: product.description || null,
     featured: Boolean(product.featured)
@@ -181,6 +206,7 @@ function productMedia(product, compact = false) {
 
 function productCard(product) {
   const stock = stockInfo(product);
+  const price = product.price === null ? '<span class="current-price price-pending">Consultar precio</span>' : `<span class="current-price">Bs ${money(product.price)}</span>${isOffer(product) ? `<span class="old-price">Bs ${money(product.comparePrice)}</span>` : ""}`;
   return `<article class="product-card">
     <div class="product-media">
       ${productMedia(product)}
@@ -190,10 +216,10 @@ function productCard(product) {
     <div class="product-body">
       <span class="product-meta">${escapeHTML(product.brand)} · ${escapeHTML(product.category)}</span>
       <h3>${escapeHTML(product.name)}</h3>
-      <div class="price-row"><span class="current-price">Bs ${money(product.price)}</span>${isOffer(product) ? `<span class="old-price">Bs ${money(product.comparePrice)}</span>` : ""}</div>
+      <div class="price-row">${price}</div>
       <div class="product-actions">
         <button class="detail-button" type="button" data-detail="${product.id}">Detalles</button>
-        <button class="contact-button" type="button" data-contact="${product.id}">${Number(product.stock) > 0 ? "Consultar" : "Preguntar"}</button>
+        <button class="contact-button" type="button" data-contact="${product.id}">Consultar</button>
       </div>
     </div>
   </article>`;
@@ -226,8 +252,8 @@ function filteredProducts() {
     return (!query || haystack.includes(query)) && (!state.category || product.category === state.category) && (!state.brand || product.brand === state.brand) && (!state.offersOnly || isOffer(product));
   });
   return items.sort((a, b) => {
-    if (state.sort === "price-asc") return Number(a.price) - Number(b.price);
-    if (state.sort === "price-desc") return Number(b.price) - Number(a.price);
+    if (state.sort === "price-asc") return (a.price === null) - (b.price === null) || Number(a.price) - Number(b.price);
+    if (state.sort === "price-desc") return (a.price === null) - (b.price === null) || Number(b.price) - Number(a.price);
     if (state.sort === "name") return a.name.localeCompare(b.name, "es");
     return Number(b.featured) - Number(a.featured) || String(b.createdAt).localeCompare(String(a.createdAt));
   });
@@ -263,8 +289,8 @@ function renderAdmin() {
     return `<article class="admin-row">
       <div class="admin-thumb">${productMedia(product, true)}</div>
       <span class="admin-product-name"><strong>${escapeHTML(product.name)}</strong><small>${escapeHTML(product.brand)} · ${escapeHTML(product.category)}</small></span>
-      <span><small>Precio</small><strong>Bs ${money(product.price)}</strong></span>
-      <span><small>Stock exacto</small><strong>${Number(product.stock)}</strong><em class="stock-level ${stock.className}">${stock.label}</em></span>
+      <span><small>Precio</small><strong>${product.price === null ? "Por confirmar" : `Bs ${money(product.price)}`}</strong></span>
+      <span><small>Stock exacto</small><strong>${product.stock === null ? "Por confirmar" : Number(product.stock)}</strong><em class="stock-level ${stock.className}">${stock.label}</em></span>
       <span><small>Estado</small><strong>${isOffer(product) ? "Oferta" : "Regular"}</strong></span>
       <div class="admin-actions"><button type="button" data-edit="${product.id}">Editar</button><button class="delete" type="button" data-delete="${product.id}">Eliminar</button></div>
     </article>`;
@@ -287,13 +313,14 @@ function openDetails(id) {
   const product = state.products.find(item => item.id === id);
   if (!product) return;
   const stock = stockInfo(product);
+  const price = product.price === null ? "Consultar precio" : `Bs ${money(product.price)}`;
   $("#modal-content").innerHTML = `<article class="modal-product">
     <div class="modal-media">${productMedia(product)}${isOffer(product) ? `<span class="discount-badge">-${discount(product)}%</span>` : ""}</div>
     <div class="modal-details">
       <span class="product-meta">${escapeHTML(product.brand)} · ${escapeHTML(product.category)}</span>
       <h2 id="modal-title">${escapeHTML(product.name)}</h2>
       <p>${escapeHTML(product.description || "Consulta características, disponibilidad y precio actualizado con nuestro equipo.")}</p>
-      <div class="modal-price">Bs ${money(product.price)}</div>
+      <div class="modal-price">${price}</div>
       <p><strong>Disponibilidad:</strong> ${stock.detail} — ${stock.label}</p>
       <button class="button button-primary" type="button" data-contact="${product.id}">Consultar por WhatsApp</button>
       <button class="button button-ghost-dark" type="button" data-share="${product.id}">Copiar enlace del producto</button>
@@ -317,7 +344,9 @@ function contactProduct(id) {
   if (!product) return;
   const phone = (state.settings.whatsapp || "").replace(/\D/g, "");
   if (!phone) return showToast("Configura el número de WhatsApp en Administración.");
-  const message = `Hola, quiero consultar por ${product.name} (Bs ${money(product.price)}). Veo ${Number(product.stock)} unidades registradas, ¿continúa disponible?`;
+  const priceText = product.price === null ? "precio por confirmar" : `Bs ${money(product.price)}`;
+  const stockText = product.stock === null ? "stock por confirmar" : `${Number(product.stock)} unidades registradas`;
+  const message = `Hola, quiero consultar por ${product.name} (${priceText}). Veo ${stockText}, ¿continúa disponible?`;
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
 }
 
@@ -329,7 +358,6 @@ function shareProduct(id) {
 function resetForm() {
   state.editingId = null;
   $("#product-form").reset();
-  $("#product-stock").value = 0;
   $("#product-id").value = "";
   $("#form-title").textContent = "Añadir producto";
   $("#cancel-edit").classList.add("hidden");
@@ -345,7 +373,7 @@ function editProduct(id) {
   $("#product-category").value = product.category;
   $("#product-price").value = product.price;
   $("#product-compare").value = product.comparePrice || "";
-  $("#product-stock").value = product.stock || 0;
+  $("#product-stock").value = product.stock ?? "";
   $("#product-image").value = product.image || "";
   $("#product-description").value = product.description || "";
   $("#product-featured").checked = Boolean(product.featured);
@@ -360,6 +388,11 @@ async function deleteProduct(id) {
   if (db) {
     const { error } = await db.from("products").delete().eq("id", id);
     if (error) return showToast("No se pudo eliminar el producto.");
+    const objectPath = storageObjectPath(product.image);
+    if (objectPath) {
+      const { error: imageError } = await db.storage.from(PRODUCT_BUCKET).remove([objectPath]);
+      if (imageError) console.warn("El producto se eliminó, pero no se pudo borrar su fotografía.", imageError);
+    }
   }
   state.products = state.products.filter(item => item.id !== id);
   saveLocal();
@@ -407,15 +440,22 @@ $("#product-form").addEventListener("submit", async event => {
   event.preventDefault();
   const wasEditing = Boolean(state.editingId);
   const existing = state.products.find(item => item.id === state.editingId);
+  const productId = state.editingId || crypto.randomUUID();
+  const imageFile = $("#product-image-file").files?.[0];
+  let imageUrl = $("#product-image").value.trim();
+  if (imageFile) {
+    try { imageUrl = await uploadProductImage(imageFile, productId); }
+    catch (error) { return showToast(error.message || "No se pudo subir la fotografía."); }
+  }
   const product = {
-    id: state.editingId || crypto.randomUUID(),
+    id: productId,
     name: $("#product-name").value.trim(),
     brand: $("#product-brand").value.trim(),
     category: $("#product-category").value.trim(),
-    price: Number($("#product-price").value),
-    comparePrice: Number($("#product-compare").value || 0),
-    stock: Math.max(0, Number($("#product-stock").value || 0)),
-    image: $("#product-image").value.trim(),
+    price: $("#product-price").value === "" ? null : Number($("#product-price").value),
+    comparePrice: $("#product-compare").value === "" ? null : Number($("#product-compare").value),
+    stock: $("#product-stock").value === "" ? null : Math.max(0, Number($("#product-stock").value)),
+    image: imageUrl,
     description: $("#product-description").value.trim(),
     featured: $("#product-featured").checked,
     createdAt: existing?.createdAt || new Date().toISOString()
@@ -424,6 +464,10 @@ $("#product-form").addEventListener("submit", async event => {
     const { data, error } = await db.from("products").upsert(toDbProduct(product)).select().single();
     if (error) return showToast("No se pudo guardar. Revisa tu sesión y la conexión.");
     Object.assign(product, fromDbProduct(data));
+    if (imageFile && existing?.image && existing.image !== product.image) {
+      const previousPath = storageObjectPath(existing.image);
+      if (previousPath) await db.storage.from(PRODUCT_BUCKET).remove([previousPath]);
+    }
   }
   if (wasEditing) state.products = state.products.map(item => item.id === product.id ? product : item);
   else state.products.unshift(product);

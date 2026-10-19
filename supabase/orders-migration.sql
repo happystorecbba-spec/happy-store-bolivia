@@ -21,17 +21,17 @@ alter table public.orders enable row level security;
 
 drop policy if exists "Happy Store admin can read orders" on public.orders;
 create policy "Happy Store admin can read orders" on public.orders for select to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can insert orders" on public.orders;
 create policy "Happy Store admin can insert orders" on public.orders for insert to authenticated
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can update orders" on public.orders;
 create policy "Happy Store admin can update orders" on public.orders for update to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com')
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can delete orders" on public.orders;
 create policy "Happy Store admin can delete orders" on public.orders for delete to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null);

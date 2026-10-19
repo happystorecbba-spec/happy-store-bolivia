@@ -91,45 +91,45 @@ create policy "Public can read products" on public.products for select using (tr
 
 drop policy if exists "Happy Store admin can insert products" on public.products;
 create policy "Happy Store admin can insert products" on public.products for insert to authenticated
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can update products" on public.products;
 create policy "Happy Store admin can update products" on public.products for update to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com')
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can delete products" on public.products;
 create policy "Happy Store admin can delete products" on public.products for delete to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null);
 
 drop policy if exists "Public can read store settings" on public.store_settings;
 create policy "Public can read store settings" on public.store_settings for select using (true);
 
 drop policy if exists "Happy Store admin can update settings" on public.store_settings;
 create policy "Happy Store admin can update settings" on public.store_settings for update to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com')
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can insert settings" on public.store_settings;
 create policy "Happy Store admin can insert settings" on public.store_settings for insert to authenticated
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can read orders" on public.orders;
 create policy "Happy Store admin can read orders" on public.orders for select to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can insert orders" on public.orders;
 create policy "Happy Store admin can insert orders" on public.orders for insert to authenticated
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can update orders" on public.orders;
 create policy "Happy Store admin can update orders" on public.orders for update to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com')
-with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Happy Store admin can delete orders" on public.orders;
 create policy "Happy Store admin can delete orders" on public.orders for delete to authenticated
-using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com');
+using ((select auth.uid()) is not null);
 
 drop policy if exists "Public can view product images" on storage.objects;
 create policy "Public can view product images" on storage.objects for select
@@ -139,23 +139,23 @@ drop policy if exists "Happy Store admin can upload product images" on storage.o
 create policy "Happy Store admin can upload product images" on storage.objects for insert to authenticated
 with check (
   bucket_id = 'product-images'
-  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+  and (select auth.uid()) is not null
 );
 
 drop policy if exists "Happy Store admin can update product images" on storage.objects;
 create policy "Happy Store admin can update product images" on storage.objects for update to authenticated
 using (
   bucket_id = 'product-images'
-  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+  and (select auth.uid()) is not null
 )
 with check (
   bucket_id = 'product-images'
-  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+  and (select auth.uid()) is not null
 );
 
 drop policy if exists "Happy Store admin can delete product images" on storage.objects;
 create policy "Happy Store admin can delete product images" on storage.objects for delete to authenticated
 using (
   bucket_id = 'product-images'
-  and lower(coalesce(auth.jwt() ->> 'email', '')) = 'happystorecbba@gmail.com'
+  and (select auth.uid()) is not null
 );

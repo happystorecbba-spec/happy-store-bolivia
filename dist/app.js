@@ -1,7 +1,6 @@
 const SETTINGS_KEY = "happy-store-settings-v1";
 const ORDERS_KEY = "happy-store-orders-v1";
 const PAGE_SIZE = 9;
-const AUTHORIZED_EMAIL = "happystorecbba@gmail.com";
 const PRODUCT_BUCKET = "product-images";
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const ORDER_STATUSES = {
@@ -355,7 +354,7 @@ function renderCatalog() {
 }
 
 function canAdmin() {
-  return !cloudEnabled || state.session?.user?.email?.toLowerCase() === AUTHORIZED_EMAIL;
+  return Boolean(cloudEnabled && state.session?.user);
 }
 
 function renderAdmin() {
@@ -871,9 +870,17 @@ $("#login-form").addEventListener("submit", async event => {
   event.preventDefault();
   if (!db) return showToast("Supabase aún no está configurado.");
   const email = $("#login-email").value.trim().toLowerCase();
-  if (email !== AUTHORIZED_EMAIL) return showToast("Este correo no está autorizado.");
-  const { error } = await db.auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}${location.pathname}#admin` } });
-  showToast(error ? "No se pudo enviar el enlace de acceso." : "Revisa el correo de Happy Store para ingresar.");
+  const password = $("#login-password").value;
+  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.textContent = "Ingresando…";
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  submitButton.disabled = false;
+  submitButton.textContent = "Ingresar al panel";
+  if (error?.message?.toLowerCase().includes("email not confirmed")) return showToast("Este usuario todavía no fue confirmado en Supabase.");
+  if (error) return showToast("Correo o contraseña incorrectos.");
+  $("#login-password").value = "";
+  showToast("Bienvenido al panel de Happy Store.");
 });
 
 $("#logout-button").addEventListener("click", async () => { if (db) await db.auth.signOut(); });

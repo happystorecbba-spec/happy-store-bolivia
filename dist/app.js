@@ -11,6 +11,7 @@ const ORDER_STATUSES = {
   entregado: "Entregado",
   cancelado: "Cancelado"
 };
+const BASE_CATEGORIES = ["Accesorios", "Audio", "Celulares", "Cuidado personal", "Energía", "Hogar inteligente", "Tablets", "Wearables"];
 
 const DEFAULT_SETTINGS = {
   id: 1,
@@ -334,17 +335,31 @@ function uniqueValues(field) {
   return [...new Set(state.products.map(product => product[field]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
 }
 
+function catalogCategories() {
+  return [...new Set([...BASE_CATEGORIES, ...uniqueValues("category")])].sort((a, b) => a.localeCompare(b, "es"));
+}
+
+function updateProductCategoryOptions() {
+  const categories = catalogCategories();
+  [$("#product-category"), $("#edit-product-category")].forEach(select => {
+    const selected = select.value;
+    select.innerHTML = `<option value="">Selecciona una categoría</option>${categories.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
+    if (categories.includes(selected)) select.value = selected;
+  });
+}
+
 function updateFilterOptions() {
   const category = $("#category-filter");
   const brand = $("#brand-filter");
-  category.innerHTML = `<option value="">Todas</option>${uniqueValues("category").map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
+  category.innerHTML = `<option value="">Todas</option>${catalogCategories().map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
   brand.innerHTML = `<option value="">Todas</option>${uniqueValues("brand").map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
   category.value = state.category;
   brand.value = state.brand;
+  updateProductCategoryOptions();
 }
 
 function renderFooterCategories() {
-  const categories = uniqueValues("category");
+  const categories = catalogCategories();
   $("#footer-categories").innerHTML = categories
     .map(category => `<button type="button" data-footer-category="${escapeHTML(category)}">${escapeHTML(category)}</button>`)
     .join("");
@@ -937,14 +952,8 @@ $("#order-form").addEventListener("submit", async event => {
 
 $("#settings-form").addEventListener("submit", async event => {
   event.preventDefault();
-  const heroImageFile = $("#setting-hero-image-file").files?.[0];
-  const previousHeroImage = state.settings.heroImage || "";
-  let heroImage = $("#setting-hero-image").value.trim();
-  if (heroImageFile) {
-    try { heroImage = await uploadProductImage(heroImageFile, "site-settings/hero-offer"); }
-    catch (error) { return showToast(error.message || "No se pudo subir la imagen principal."); }
-  }
   const settings = {
+    ...state.settings,
     id: 1,
     whatsapp: $("#setting-whatsapp").value.trim(),
     instagram: $("#setting-instagram").value.trim(),
@@ -954,13 +963,35 @@ $("#settings-form").addEventListener("submit", async event => {
     storePhone: $("#setting-phone").value.trim(),
     ownerName: $("#setting-owner").value.trim(),
     address: $("#setting-address").value.trim(),
-    note: $("#setting-note").value.trim(),
+    note: $("#setting-note").value.trim()
+  };
+  if (db) {
+    const { error } = await db.from("store_settings").upsert(toDbSettings(settings));
+    if (error) return showToast("No se pudo guardar la configuración.");
+  }
+  state.settings = settings;
+  saveLocal();
+  renderSettings();
+  showToast("Configuración guardada.");
+});
+
+$("#hero-settings-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const heroImageFile = $("#setting-hero-image-file").files?.[0];
+  const previousHeroImage = state.settings.heroImage || "";
+  let heroImage = $("#setting-hero-image").value.trim();
+  if (heroImageFile) {
+    try { heroImage = await uploadProductImage(heroImageFile, "site-settings/hero-offer"); }
+    catch (error) { return showToast(error.message || "No se pudo subir la imagen principal."); }
+  }
+  const settings = {
+    ...state.settings,
     heroDiscountPercent: Math.max(1, Math.min(99, Number($("#setting-hero-discount").value || DEFAULT_SETTINGS.heroDiscountPercent))),
     heroImage
   };
   if (db) {
     const { error } = await db.from("store_settings").upsert(toDbSettings(settings));
-    if (error) return showToast("No se pudo guardar la configuración.");
+    if (error) return showToast("No se pudo guardar la oferta principal. Ejecuta primero la migración de ofertas en Supabase.");
     if (heroImageFile && previousHeroImage && previousHeroImage !== heroImage) {
       const previousPath = storageObjectPath(previousHeroImage);
       if (previousPath) await db.storage.from(PRODUCT_BUCKET).remove([previousPath]);
@@ -969,8 +1000,9 @@ $("#settings-form").addEventListener("submit", async event => {
   state.settings = settings;
   saveLocal();
   renderSettings();
+  $("#setting-hero-image").value = heroImage;
   $("#setting-hero-image-file").value = "";
-  showToast("Configuración guardada.");
+  showToast("Oferta principal actualizada.");
 });
 
 $("#login-form").addEventListener("submit", async event => {

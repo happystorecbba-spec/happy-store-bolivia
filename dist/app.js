@@ -343,6 +343,13 @@ function updateFilterOptions() {
   brand.value = state.brand;
 }
 
+function renderFooterCategories() {
+  const categories = uniqueValues("category");
+  $("#footer-categories").innerHTML = categories
+    .map(category => `<button type="button" data-footer-category="${escapeHTML(category)}">${escapeHTML(category)}</button>`)
+    .join("");
+}
+
 function filteredProducts() {
   const query = state.query.trim().toLowerCase();
   const items = state.products.filter(product => {
@@ -818,6 +825,7 @@ function renderAll() {
   renderCatalog();
   renderAdmin();
   renderSettings();
+  renderFooterCategories();
 }
 
 $("#product-form").addEventListener("submit", async event => {
@@ -1005,6 +1013,13 @@ $("#clear-filters").addEventListener("click", () => {
 document.addEventListener("click", event => {
   const go = event.target.closest("[data-go]");
   if (go) location.hash = go.dataset.go;
+  const footerCategory = event.target.closest("[data-footer-category]");
+  if (footerCategory) {
+    state.category = footerCategory.dataset.footerCategory;
+    state.page = 1;
+    location.hash = "catalogo";
+    renderCatalog();
+  }
   const detail = event.target.closest("[data-detail]");
   if (detail) openDetails(detail.dataset.detail);
   const contact = event.target.closest("[data-contact]");

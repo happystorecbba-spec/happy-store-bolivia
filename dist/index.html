@@ -174,8 +174,8 @@
       <div class="admin-hero">
         <div class="shell">
           <span class="eyebrow eyebrow-light">ADMINISTRACIÓN</span>
-          <h1 id="admin-title">Gestión del catálogo</h1>
-          <p>Prepara productos, precios, stock y promociones antes de la carga definitiva.</p>
+          <h1 id="admin-title">Gestión de la tienda</h1>
+          <p>Administra productos, inventario, pedidos y reportes mensuales desde un solo lugar.</p>
         </div>
       </div>
 
@@ -198,6 +198,87 @@
 
       <div id="admin-content" class="admin-content hidden">
       <div class="admin-session shell"><span id="admin-user"></span><button id="logout-button" class="text-button" type="button">Cerrar sesión</button></div>
+
+      <section class="shell orders-panel" aria-labelledby="orders-title">
+        <div class="section-heading compact-heading orders-heading">
+          <div><span class="eyebrow">PEDIDOS</span><h2 id="orders-title">Seguimiento y reportes</h2></div>
+          <span id="orders-count" class="count-badge">0 pedidos</span>
+        </div>
+
+        <div class="order-stats" aria-label="Resumen de pedidos">
+          <article><span>Registrados</span><strong id="orders-stat-total">0</strong></article>
+          <article><span>En proceso</span><strong id="orders-stat-active">0</strong></article>
+          <article><span>Entregados</span><strong id="orders-stat-delivered">0</strong></article>
+          <article><span>Total vendido</span><strong id="orders-stat-revenue">Bs 0,00</strong></article>
+        </div>
+
+        <div class="orders-workspace">
+          <section class="admin-card order-form-card">
+            <div class="admin-card-heading">
+              <div><span class="eyebrow">REGISTRO</span><h2 id="order-form-title">Nuevo pedido</h2></div>
+              <button id="cancel-order-edit" class="text-button hidden" type="button">Cancelar edición</button>
+            </div>
+            <form id="order-form" class="order-form">
+              <input id="order-id" type="hidden">
+              <label class="field"><span>Cliente *</span><input id="order-customer" required placeholder="Nombre completo"></label>
+              <label class="field"><span>Teléfono</span><input id="order-phone" inputmode="tel" placeholder="Ej. 70000000"></label>
+              <label class="field"><span>Fecha del pedido *</span><input id="order-date" type="date" required></label>
+              <label class="field"><span>Estado *</span>
+                <select id="order-status" required>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="preparando">Preparando</option>
+                  <option value="listo">Listo para entregar</option>
+                  <option value="entregado">Entregado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </label>
+              <label class="field field-wide"><span>Productos del pedido *</span><textarea id="order-items" rows="4" required placeholder="Ej. 1 × Redmi Note 14 Pro&#10;1 × Redmi Buds 6 Play"></textarea></label>
+              <label class="field"><span>Total (Bs)</span><input id="order-total" type="number" min="0" step="0.01" placeholder="0,00"></label>
+              <label class="field"><span>Notas</span><input id="order-notes" placeholder="Pago, entrega u observaciones"></label>
+              <button class="button button-primary field-wide" type="submit">Guardar pedido</button>
+            </form>
+          </section>
+
+          <aside class="admin-card report-card">
+            <span class="eyebrow">REPORTE PDF</span>
+            <h2>Pedidos por periodo</h2>
+            <p>Genera un PDF de cualquier mes o de toda la gestión seleccionada.</p>
+            <label class="field"><span>Mes</span>
+              <select id="report-month">
+                <option value="all">Todo el año</option>
+                <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+              </select>
+            </label>
+            <label class="field"><span>Año</span><select id="report-year"></select></label>
+            <button id="generate-orders-pdf" class="button button-secondary" type="button">Descargar reporte PDF</button>
+            <small>Incluye detalle de pedidos, estados, totales y resumen del periodo.</small>
+          </aside>
+        </div>
+
+        <div class="orders-list-card">
+          <div class="orders-toolbar">
+            <div><strong>Pedidos registrados</strong><small>Cambia el estado directamente desde cada pedido.</small></div>
+            <label><span class="sr-only">Filtrar pedidos por estado</span>
+              <select id="orders-status-filter">
+                <option value="">Todos los estados</option>
+                <option value="pendiente">Pendientes</option>
+                <option value="confirmado">Confirmados</option>
+                <option value="preparando">En preparación</option>
+                <option value="listo">Listos para entregar</option>
+                <option value="entregado">Entregados</option>
+                <option value="cancelado">Cancelados</option>
+              </select>
+            </label>
+          </div>
+          <div id="orders-list" class="orders-list"></div>
+          <div id="orders-empty" class="empty-state small-empty"><h3>Aún no hay pedidos</h3><p>Registra el primer pedido usando el formulario.</p></div>
+        </div>
+      </section>
+
       <div class="admin-layout shell">
         <section class="admin-card">
           <div class="admin-card-heading">
@@ -280,6 +361,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>

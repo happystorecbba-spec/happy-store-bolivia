@@ -1,7 +1,17 @@
 const SETTINGS_KEY = "happy-store-settings-v1";
+const ORDERS_KEY = "happy-store-orders-v1";
 const PAGE_SIZE = 9;
 const AUTHORIZED_EMAIL = "happystorecbba@gmail.com";
 const PRODUCT_BUCKET = "product-images";
+const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const ORDER_STATUSES = {
+  pendiente: "Pendiente",
+  confirmado: "Confirmado",
+  preparando: "Preparando",
+  listo: "Listo para entregar",
+  entregado: "Entregado",
+  cancelado: "Cancelado"
+};
 
 const DEFAULT_SETTINGS = {
   id: 1,
@@ -22,6 +32,7 @@ const db = cloudEnabled ? window.supabase.createClient(config.supabaseUrl, confi
 
 const state = {
   products: [],
+  orders: readJSON(ORDERS_KEY, []),
   settings: { ...DEFAULT_SETTINGS, ...readJSON(SETTINGS_KEY, {}) },
   session: null,
   query: "",
@@ -30,7 +41,9 @@ const state = {
   offersOnly: false,
   sort: "featured",
   page: 1,
-  editingId: null
+  editingId: null,
+  editingOrderId: null,
+  orderStatusFilter: ""
 };
 
 try { localStorage.removeItem("happy-store-products-v1"); } catch {}
@@ -45,6 +58,7 @@ function readJSON(key, fallback) {
 
 function saveLocal() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(state.orders));
 }
 
 function storageObjectPath(url = "") {
@@ -126,6 +140,58 @@ function toDbProduct(product) {
   };
 }
 
+function fromDbOrder(row) {
+  return {
+    id: row.id,
+    number: row.order_number,
+    customerName: row.customer_name || "",
+    customerPhone: row.customer_phone || "",
+    items: row.items || "",
+    total: row.total === null ? null : Number(row.total),
+    status: ORDER_STATUSES[row.status] ? row.status : "pendiente",
+    orderedAt: row.ordered_at || todayISO(),
+    notes: row.notes || "",
+    createdAt: row.created_at || new Date().toISOString()
+  };
+}
+
+function toDbOrder(order) {
+  return {
+    id: order.id,
+    customer_name: order.customerName,
+    customer_phone: order.customerPhone || null,
+    items: order.items,
+    total: order.total === null || order.total === "" ? null : Number(order.total),
+    status: ORDER_STATUSES[order.status] ? order.status : "pendiente",
+    ordered_at: order.orderedAt,
+    notes: order.notes || null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function todayISO() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateParts(dateValue) {
+  const [year, month, day] = String(dateValue || "").split("-").map(Number);
+  return { year, month: month - 1, day };
+}
+
+function displayDate(dateValue) {
+  const { year, month, day } = dateParts(dateValue);
+  if (!year || month < 0 || !day) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-BO", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month, day)));
+}
+
+function orderNumber(order) {
+  return `#${String(order.number || "—").padStart(4, "0")}`;
+}
+
 function fromDbSettings(row = {}) {
   return {
     ...DEFAULT_SETTINGS,
@@ -158,6 +224,21 @@ function toDbSettings(settings) {
   };
 }
 
+async function loadOrders() {
+  if (!db || !canAdmin()) {
+    if (cloudEnabled) state.orders = [];
+    return;
+  }
+  const { data, error } = await db.from("orders").select("*").order("ordered_at", { ascending: false }).order("created_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    setConnectionStatus("El inventario está conectado, pero no se pudieron cargar los pedidos.", true);
+    return;
+  }
+  state.orders = (data || []).map(fromDbOrder);
+  saveLocal();
+}
+
 async function loadCloudData() {
   if (!db) {
     setConnectionStatus("Configuración de Supabase pendiente. Los cambios se guardan temporalmente en este navegador.", true);
@@ -175,8 +256,9 @@ async function loadCloudData() {
   }
   state.products = (products || []).map(fromDbProduct);
   if (settings) state.settings = fromDbSettings(settings);
+  await loadOrders();
   saveLocal();
-  setConnectionStatus("Inventario conectado y sincronizado con Supabase.");
+  setConnectionStatus("Catálogo y pedidos conectados con Supabase.");
 }
 
 function setConnectionStatus(message, isError = false) {
@@ -298,6 +380,7 @@ function renderAdmin() {
   list.hidden = state.products.length === 0;
   $("#admin-empty").hidden = state.products.length > 0;
   $("#admin-count").textContent = `${state.products.length} ${state.products.length === 1 ? "producto" : "productos"}`;
+  renderOrders();
   $("#setting-whatsapp").value = state.settings.whatsapp || "";
   $("#setting-instagram").value = state.settings.instagram || "";
   $("#setting-tiktok").value = state.settings.tiktok || "";
@@ -307,6 +390,259 @@ function renderAdmin() {
   $("#setting-owner").value = state.settings.ownerName || "";
   $("#setting-address").value = state.settings.address || "";
   $("#setting-note").value = state.settings.note || "";
+}
+
+function orderStatusOptions(selected) {
+  return Object.entries(ORDER_STATUSES).map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`).join("");
+}
+
+function filteredOrders() {
+  return state.orders.filter(order => !state.orderStatusFilter || order.status === state.orderStatusFilter);
+}
+
+function prepareReportSelectors() {
+  const yearSelect = $("#report-year");
+  const currentYear = new Date().getFullYear();
+  const years = [...new Set([currentYear, ...state.orders.map(order => dateParts(order.orderedAt).year).filter(Boolean)])].sort((a, b) => b - a);
+  const signature = years.join(",");
+  if (yearSelect.dataset.signature === signature) return;
+  const previousYear = Number(yearSelect.value);
+  const wasReady = Boolean(yearSelect.dataset.ready);
+  yearSelect.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join("");
+  yearSelect.value = String(years.includes(previousYear) ? previousYear : currentYear);
+  if (!wasReady) $("#report-month").value = String(new Date().getMonth());
+  yearSelect.dataset.ready = "true";
+  yearSelect.dataset.signature = signature;
+}
+
+function renderOrders() {
+  const list = $("#orders-list");
+  if (!list) return;
+  prepareReportSelectors();
+  const visible = filteredOrders();
+  const active = state.orders.filter(order => !["entregado", "cancelado"].includes(order.status)).length;
+  const delivered = state.orders.filter(order => order.status === "entregado").length;
+  const revenue = state.orders.filter(order => order.status !== "cancelado").reduce((sum, order) => sum + Number(order.total || 0), 0);
+  $("#orders-count").textContent = `${state.orders.length} ${state.orders.length === 1 ? "pedido" : "pedidos"}`;
+  $("#orders-stat-total").textContent = state.orders.length;
+  $("#orders-stat-active").textContent = active;
+  $("#orders-stat-delivered").textContent = delivered;
+  $("#orders-stat-revenue").textContent = `Bs ${money(revenue)}`;
+  list.innerHTML = visible.map(order => `<article class="order-row">
+    <span><strong class="order-number">${orderNumber(order)}</strong><small>${displayDate(order.orderedAt)}</small></span>
+    <span><strong>${escapeHTML(order.customerName)}</strong><small>${escapeHTML(order.customerPhone || "Sin teléfono")}</small></span>
+    <span class="order-items">${escapeHTML(order.items)}</span>
+    <span class="order-total"><small>Total</small><strong>${order.total === null ? "Por confirmar" : `Bs ${money(order.total)}`}</strong></span>
+    <select class="order-status-select status-${order.status}" data-order-status="${order.id}" aria-label="Estado del pedido ${orderNumber(order)}">${orderStatusOptions(order.status)}</select>
+    <div class="order-actions"><button type="button" data-edit-order="${order.id}">Editar</button><button class="delete" type="button" data-delete-order="${order.id}">Eliminar</button></div>
+  </article>`).join("");
+  list.hidden = visible.length === 0;
+  $("#orders-empty").hidden = visible.length > 0;
+  $("#orders-empty").querySelector("p").textContent = state.orders.length ? "No hay pedidos con el estado seleccionado." : "Registra el primer pedido usando el formulario.";
+}
+
+function resetOrderForm() {
+  state.editingOrderId = null;
+  $("#order-form").reset();
+  $("#order-id").value = "";
+  $("#order-date").value = todayISO();
+  $("#order-status").value = "pendiente";
+  $("#order-form-title").textContent = "Nuevo pedido";
+  $("#cancel-order-edit").classList.add("hidden");
+}
+
+function editOrder(id) {
+  const order = state.orders.find(item => item.id === id);
+  if (!order) return;
+  state.editingOrderId = id;
+  $("#order-id").value = id;
+  $("#order-customer").value = order.customerName;
+  $("#order-phone").value = order.customerPhone || "";
+  $("#order-date").value = order.orderedAt;
+  $("#order-status").value = order.status;
+  $("#order-items").value = order.items;
+  $("#order-total").value = order.total ?? "";
+  $("#order-notes").value = order.notes || "";
+  $("#order-form-title").textContent = `Editar pedido ${orderNumber(order)}`;
+  $("#cancel-order-edit").classList.remove("hidden");
+  $("#order-form").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function updateOrderStatus(id, status) {
+  if (!ORDER_STATUSES[status]) return;
+  if (db) {
+    const { error } = await db.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) {
+      renderOrders();
+      return showToast("No se pudo actualizar el estado del pedido.");
+    }
+  }
+  state.orders = state.orders.map(order => order.id === id ? { ...order, status } : order);
+  saveLocal();
+  renderOrders();
+  showToast(`Pedido marcado como ${ORDER_STATUSES[status].toLowerCase()}.`);
+}
+
+async function deleteOrder(id) {
+  const order = state.orders.find(item => item.id === id);
+  if (!order || !confirm(`¿Eliminar el pedido ${orderNumber(order)} de ${order.customerName}?`)) return;
+  if (db) {
+    const { error } = await db.from("orders").delete().eq("id", id);
+    if (error) return showToast("No se pudo eliminar el pedido.");
+  }
+  state.orders = state.orders.filter(item => item.id !== id);
+  if (state.editingOrderId === id) resetOrderForm();
+  saveLocal();
+  renderOrders();
+  showToast("Pedido eliminado.");
+}
+
+function ordersForReport(year, month) {
+  return state.orders.filter(order => {
+    const parts = dateParts(order.orderedAt);
+    return parts.year === year && (month === "all" || parts.month === Number(month));
+  }).sort((a, b) => String(a.orderedAt).localeCompare(String(b.orderedAt)) || Number(a.number || 0) - Number(b.number || 0));
+}
+
+function generateOrdersPdf() {
+  const jsPdf = window.jspdf?.jsPDF;
+  if (!jsPdf) return showToast("No se pudo cargar el generador de PDF. Revisa tu conexión.");
+  const year = Number($("#report-year").value);
+  const month = $("#report-month").value;
+  const orders = ordersForReport(year, month);
+  if (!orders.length) return showToast("No hay pedidos en el periodo seleccionado.");
+
+  const doc = new jsPdf({ unit: "mm", format: "a4" });
+  const pageWidth = 210;
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  const period = month === "all" ? `Gestión ${year}` : `${MONTHS[Number(month)]} ${year}`;
+  const total = orders.filter(order => order.status !== "cancelado").reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const delivered = orders.filter(order => order.status === "entregado").length;
+  const cancelled = orders.filter(order => order.status === "cancelado").length;
+  let y = 0;
+
+  const pageHeader = () => {
+    doc.setFillColor(20, 25, 29);
+    doc.rect(0, 0, pageWidth, 30, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("HAPPY STORE", margin, 13);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Reporte de pedidos · ${period}`, margin, 21);
+    doc.text(`Generado: ${new Intl.DateTimeFormat("es-BO").format(new Date())}`, pageWidth - margin, 21, { align: "right" });
+    doc.setTextColor(20, 25, 29);
+    y = 39;
+  };
+
+  const ensureSpace = height => {
+    if (y + height <= 282) return;
+    doc.addPage();
+    pageHeader();
+  };
+
+  const summaryBox = (x, width, label, value) => {
+    doc.setFillColor(235, 239, 242);
+    doc.roundedRect(x, y, width, 19, 2, 2, "F");
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(90, 104, 114);
+    doc.text(label.toUpperCase(), x + 4, y + 6);
+    doc.setFontSize(12);
+    doc.setTextColor(20, 25, 29);
+    doc.text(value, x + 4, y + 14);
+  };
+
+  pageHeader();
+  const boxGap = 3;
+  const boxWidth = (contentWidth - boxGap * 3) / 4;
+  summaryBox(margin, boxWidth, "Pedidos", String(orders.length));
+  summaryBox(margin + (boxWidth + boxGap), boxWidth, "Entregados", String(delivered));
+  summaryBox(margin + (boxWidth + boxGap) * 2, boxWidth, "Cancelados", String(cancelled));
+  summaryBox(margin + (boxWidth + boxGap) * 3, boxWidth, "Total", `Bs ${money(total)}`);
+  y += 27;
+
+  if (month === "all") {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Resumen mensual", margin, y);
+    y += 5;
+    MONTHS.forEach((monthName, index) => {
+      const monthly = orders.filter(order => dateParts(order.orderedAt).month === index);
+      const monthlyTotal = monthly.filter(order => order.status !== "cancelado").reduce((sum, order) => sum + Number(order.total || 0), 0);
+      doc.setFillColor(index % 2 ? 248 : 242, index % 2 ? 249 : 245, index % 2 ? 250 : 247);
+      doc.rect(margin, y, contentWidth, 7, "F");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.text(monthName, margin + 3, y + 4.7);
+      doc.text(`${monthly.length} ${monthly.length === 1 ? "pedido" : "pedidos"}`, margin + 75, y + 4.7);
+      doc.text(`Bs ${money(monthlyTotal)}`, pageWidth - margin - 3, y + 4.7, { align: "right" });
+      y += 7;
+    });
+    y += 7;
+    ensureSpace(20);
+  }
+
+  const columns = [18, 23, 33, 52, 29, 27];
+  const headers = ["Nro.", "Fecha", "Cliente", "Productos", "Estado", "Total (Bs)"];
+  const drawTableHeader = () => {
+    doc.setFillColor(69, 93, 119);
+    doc.rect(margin, y, contentWidth, 8, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    let x = margin;
+    headers.forEach((header, index) => { doc.text(header, x + 2, y + 5.2); x += columns[index]; });
+    doc.setTextColor(20, 25, 29);
+    y += 8;
+  };
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Detalle de pedidos", margin, y);
+  y += 5;
+  drawTableHeader();
+
+  orders.forEach((order, index) => {
+    const clientLines = doc.splitTextToSize(order.customerName, columns[2] - 4);
+    const itemLines = doc.splitTextToSize(order.items.replace(/\n+/g, " · "), columns[3] - 4);
+    const statusLines = doc.splitTextToSize(ORDER_STATUSES[order.status], columns[4] - 4);
+    const maxLines = Math.max(clientLines.length, itemLines.length, statusLines.length, 1);
+    const rowHeight = Math.max(9, maxLines * 3.7 + 4);
+    if (y + rowHeight > 282) {
+      doc.addPage();
+      pageHeader();
+      drawTableHeader();
+    }
+    doc.setFillColor(index % 2 ? 250 : 244, index % 2 ? 251 : 247, index % 2 ? 252 : 249);
+    doc.rect(margin, y, contentWidth, rowHeight, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.3);
+    let x = margin;
+    const cells = [orderNumber(order), displayDate(order.orderedAt), clientLines, itemLines, statusLines, order.total === null ? "—" : money(order.total)];
+    cells.forEach((cell, cellIndex) => {
+      doc.text(cell, x + 2, y + 4.6, { baseline: "alphabetic" });
+      x += columns[cellIndex];
+    });
+    y += rowHeight;
+  });
+
+  const pageCount = doc.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    doc.setDrawColor(205, 213, 219);
+    doc.line(margin, 288, pageWidth - margin, 288);
+    doc.setFontSize(7.5);
+    doc.setTextColor(105, 118, 128);
+    doc.text("Happy Store · Reporte administrativo", margin, 293);
+    doc.text(`Página ${page} de ${pageCount}`, pageWidth - margin, 293, { align: "right" });
+  }
+
+  const suffix = month === "all" ? "anual" : String(Number(month) + 1).padStart(2, "0");
+  doc.save(`happy-store-pedidos-${year}-${suffix}.pdf`);
+  showToast("Reporte PDF generado.");
 }
 
 function openDetails(id) {
@@ -477,6 +813,36 @@ $("#product-form").addEventListener("submit", async event => {
   showToast(wasEditing ? "Producto actualizado." : "Producto guardado.");
 });
 
+$("#order-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const wasEditing = Boolean(state.editingOrderId);
+  const existing = state.orders.find(item => item.id === state.editingOrderId);
+  const order = {
+    id: state.editingOrderId || crypto.randomUUID(),
+    number: existing?.number || (Math.max(0, ...state.orders.map(item => Number(item.number || 0))) + 1),
+    customerName: $("#order-customer").value.trim(),
+    customerPhone: $("#order-phone").value.trim(),
+    orderedAt: $("#order-date").value,
+    status: $("#order-status").value,
+    items: $("#order-items").value.trim(),
+    total: $("#order-total").value === "" ? null : Number($("#order-total").value),
+    notes: $("#order-notes").value.trim(),
+    createdAt: existing?.createdAt || new Date().toISOString()
+  };
+  if (db) {
+    const { data, error } = await db.from("orders").upsert(toDbOrder(order)).select().single();
+    if (error) return showToast("No se pudo guardar el pedido. Revisa tu sesión.");
+    Object.assign(order, fromDbOrder(data));
+  }
+  if (wasEditing) state.orders = state.orders.map(item => item.id === order.id ? order : item);
+  else state.orders.unshift(order);
+  state.orders.sort((a, b) => String(b.orderedAt).localeCompare(String(a.orderedAt)) || Number(b.number || 0) - Number(a.number || 0));
+  saveLocal();
+  resetOrderForm();
+  renderOrders();
+  showToast(wasEditing ? "Pedido actualizado." : "Pedido registrado.");
+});
+
 $("#settings-form").addEventListener("submit", async event => {
   event.preventDefault();
   const settings = {
@@ -511,6 +877,9 @@ $("#login-form").addEventListener("submit", async event => {
 });
 
 $("#logout-button").addEventListener("click", async () => { if (db) await db.auth.signOut(); });
+$("#cancel-order-edit").addEventListener("click", resetOrderForm);
+$("#generate-orders-pdf").addEventListener("click", generateOrdersPdf);
+$("#orders-status-filter").addEventListener("change", event => { state.orderStatusFilter = event.target.value; renderOrders(); });
 $("#search-input").addEventListener("input", event => { state.query = event.target.value; state.page = 1; renderCatalog(); });
 $("#category-filter").addEventListener("change", event => { state.category = event.target.value; state.page = 1; renderCatalog(); });
 $("#brand-filter").addEventListener("change", event => { state.brand = event.target.value; state.page = 1; renderCatalog(); });
@@ -538,9 +907,18 @@ document.addEventListener("click", event => {
   if (edit) editProduct(edit.dataset.edit);
   const remove = event.target.closest("[data-delete]");
   if (remove) deleteProduct(remove.dataset.delete);
+  const editOrderButton = event.target.closest("[data-edit-order]");
+  if (editOrderButton) editOrder(editOrderButton.dataset.editOrder);
+  const deleteOrderButton = event.target.closest("[data-delete-order]");
+  if (deleteOrderButton) deleteOrder(deleteOrderButton.dataset.deleteOrder);
   const pageButton = event.target.closest("[data-page-number]");
   if (pageButton) { state.page = Number(pageButton.dataset.pageNumber); renderCatalog(); window.scrollTo({ top: $(".catalog-layout").offsetTop - 100, behavior: "smooth" }); }
   if (event.target.closest("[data-close-modal]")) closeModal();
+});
+
+document.addEventListener("change", event => {
+  const statusSelect = event.target.closest("[data-order-status]");
+  if (statusSelect) updateOrderStatus(statusSelect.dataset.orderStatus, statusSelect.value);
 });
 
 $(".menu-toggle").addEventListener("click", event => {
@@ -549,7 +927,7 @@ $(".menu-toggle").addEventListener("click", event => {
 });
 $("#cancel-edit").addEventListener("click", resetForm);
 $("#export-data").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ products: state.products, settings: state.settings }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ products: state.products, orders: state.orders, settings: state.settings }, null, 2)], { type: "application/json" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = `happy-store-catalogo-${new Date().toISOString().slice(0, 10)}.json`;
@@ -568,7 +946,12 @@ $("#import-data").addEventListener("change", event => {
         const { error } = await db.from("products").upsert(data.products.map(toDbProduct));
         if (error) throw error;
       }
+      if (db && Array.isArray(data.orders) && data.orders.length) {
+        const { error } = await db.from("orders").upsert(data.orders.map(toDbOrder));
+        if (error) throw error;
+      }
       state.products = data.products;
+      state.orders = Array.isArray(data.orders) ? data.orders : state.orders;
       state.settings = { ...state.settings, ...(data.settings || {}) };
       if (db) await db.from("store_settings").upsert(toDbSettings(state.settings));
       saveLocal();
@@ -587,10 +970,19 @@ async function init() {
   if (db) {
     const { data } = await db.auth.getSession();
     state.session = data.session;
-    db.auth.onAuthStateChange((_event, session) => { state.session = session; renderAdmin(); });
+    db.auth.onAuthStateChange((_event, session) => {
+      state.session = session;
+      setTimeout(async () => {
+        if (session) await loadOrders();
+        else state.orders = [];
+        saveLocal();
+        renderAdmin();
+      }, 0);
+    });
   }
   await loadCloudData();
   renderAll();
+  resetOrderForm();
   route();
   const linkedProduct = new URLSearchParams(location.search).get("producto");
   if (linkedProduct && state.products.some(product => product.id === linkedProduct)) {

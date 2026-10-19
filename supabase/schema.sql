@@ -67,7 +67,7 @@ insert into public.store_settings (
   id, whatsapp, instagram, tiktok, email, owner_email, store_phone, owner_name, address, catalog_note, hero_discount_percent, hero_image_url
 ) values (
   1,
-  '59174806956',
+  '59164000633',
   null,
   'happystorecbba1',
   'Happystorecbba@gmail.com',

@@ -15,7 +15,7 @@ const BASE_CATEGORIES = ["Accesorios", "Audio", "Celulares", "Cuidado personal",
 
 const DEFAULT_SETTINGS = {
   id: 1,
-  whatsapp: "59174806956",
+  whatsapp: "59164000633",
   instagram: "",
   tiktok: "happystorecbba1",
   email: "Happystorecbba@gmail.com",
@@ -206,21 +206,31 @@ function orderNumber(order) {
 }
 
 function fromDbSettings(row = {}) {
+  const storePhone = row.store_phone || DEFAULT_SETTINGS.storePhone;
+  const savedWhatsapp = row.whatsapp || DEFAULT_SETTINGS.whatsapp;
+  const whatsapp = savedWhatsapp.replace(/\D/g, "") === "59174806956"
+    ? storePhone
+    : savedWhatsapp;
   return {
     ...DEFAULT_SETTINGS,
     id: row.id || 1,
-    whatsapp: row.whatsapp || DEFAULT_SETTINGS.whatsapp,
+    whatsapp,
     instagram: row.instagram || "",
     tiktok: row.tiktok || DEFAULT_SETTINGS.tiktok,
     email: row.email || DEFAULT_SETTINGS.email,
     ownerEmail: row.owner_email || DEFAULT_SETTINGS.ownerEmail,
-    storePhone: row.store_phone || DEFAULT_SETTINGS.storePhone,
+    storePhone,
     ownerName: row.owner_name || DEFAULT_SETTINGS.ownerName,
     address: row.address || DEFAULT_SETTINGS.address,
     note: row.catalog_note || DEFAULT_SETTINGS.note,
     heroDiscountPercent: Math.max(1, Math.min(99, Number(row.hero_discount_percent || DEFAULT_SETTINGS.heroDiscountPercent))),
     heroImage: row.hero_image_url || ""
   };
+}
+
+function whatsappNumber(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.length === 8 ? `591${digits}` : digits;
 }
 
 function toDbSettings(settings) {
@@ -411,7 +421,7 @@ function renderAdmin() {
       <span class="admin-product-name"><strong>${escapeHTML(product.name)}</strong><small>${escapeHTML(product.brand)} · ${escapeHTML(product.category)}</small></span>
       <span><small>Precio</small><strong>${product.price === null ? "Por confirmar" : `Bs ${money(product.price)}`}</strong></span>
       <span><small>Stock exacto</small><strong>${product.stock === null ? "Por confirmar" : Number(product.stock)}</strong><em class="stock-level ${stock.className}">${stock.label}</em></span>
-      <span><small>Estado</small><strong>${isOffer(product) ? "Oferta" : "Regular"}</strong></span>
+      <span><small>Estado</small><strong>${isOffer(product) ? "Oferta" : "Sin descuento"}</strong></span>
       <div class="admin-actions"><button type="button" data-edit="${product.id}">Editar</button><button class="delete" type="button" data-delete="${product.id}">Eliminar</button></div>
     </article>`;
   }).join("");
@@ -718,7 +728,7 @@ function closeModal() {
 function contactProduct(id) {
   const product = state.products.find(item => item.id === id);
   if (!product) return;
-  const phone = (state.settings.whatsapp || "").replace(/\D/g, "");
+  const phone = whatsappNumber(state.settings.whatsapp);
   if (!phone) return showToast("Configura el número de WhatsApp en Administración.");
   const priceText = product.price === null ? "precio por confirmar" : `Bs ${money(product.price)}`;
   const stockText = product.stock === null ? "stock por confirmar" : `${Number(product.stock)} unidades registradas`;
@@ -809,7 +819,7 @@ function renderSettings() {
   setLink("#contact-phone", `tel:+591${state.settings.storePhone.replace(/\D/g, "")}`, state.settings.storePhone);
   $("#contact-owner").textContent = state.settings.ownerName;
   $("#contact-address").textContent = state.settings.address;
-  const whatsapp = state.settings.whatsapp.replace(/\D/g, "");
+  const whatsapp = whatsappNumber(state.settings.whatsapp);
   $("#contact-whatsapp").href = `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hola, quiero consultar sobre los productos de Happy Store.")}`;
   const heroPercent = Math.max(1, Math.min(99, Number(state.settings.heroDiscountPercent || DEFAULT_SETTINGS.heroDiscountPercent)));
   $("#hero-offer-tag").textContent = `-${heroPercent}%`;

@@ -14,6 +14,8 @@ create table if not exists public.products (
   image_url text,
   description text,
   featured boolean not null default false,
+  on_sale boolean not null default false,
+  discount_percent integer not null default 0 check (discount_percent between 0 and 99),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -22,6 +24,8 @@ create table if not exists public.products (
 alter table public.products alter column price drop not null;
 alter table public.products alter column stock drop default;
 alter table public.products alter column stock drop not null;
+alter table public.products add column if not exists on_sale boolean not null default false;
+alter table public.products add column if not exists discount_percent integer not null default 0 check (discount_percent between 0 and 99);
 
 create table if not exists public.store_settings (
   id integer primary key default 1 check (id = 1),
@@ -34,8 +38,13 @@ create table if not exists public.store_settings (
   owner_name text not null,
   address text not null,
   catalog_note text not null,
+  hero_discount_percent integer not null default 20 check (hero_discount_percent between 1 and 99),
+  hero_image_url text,
   updated_at timestamptz not null default now()
 );
+
+alter table public.store_settings add column if not exists hero_discount_percent integer not null default 20 check (hero_discount_percent between 1 and 99);
+alter table public.store_settings add column if not exists hero_image_url text;
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
@@ -55,7 +64,7 @@ create index if not exists orders_ordered_at_idx on public.orders (ordered_at de
 create index if not exists orders_status_idx on public.orders (status);
 
 insert into public.store_settings (
-  id, whatsapp, instagram, tiktok, email, owner_email, store_phone, owner_name, address, catalog_note
+  id, whatsapp, instagram, tiktok, email, owner_email, store_phone, owner_name, address, catalog_note, hero_discount_percent, hero_image_url
 ) values (
   1,
   '59174806956',
@@ -66,7 +75,9 @@ insert into public.store_settings (
   '64000633',
   'Franklin Fernando Condori Gregorio',
   'Calle Punata entre San Martín y Lanza, Shopping Garoni, 2do piso, oficina 10-C',
-  'Precios referenciales sujetos a variación. Consulta el precio y stock actual antes de comprar.'
+  'Precios referenciales sujetos a variación. Consulta el precio y stock actual antes de comprar.',
+  20,
+  null
 ) on conflict (id) do update set
   whatsapp = excluded.whatsapp,
   tiktok = excluded.tiktok,
@@ -76,6 +87,7 @@ insert into public.store_settings (
   owner_name = excluded.owner_name,
   address = excluded.address,
   catalog_note = excluded.catalog_note,
+  hero_discount_percent = excluded.hero_discount_percent,
   updated_at = now();
 
 alter table public.products enable row level security;

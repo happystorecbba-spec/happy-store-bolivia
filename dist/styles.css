@@ -24,6 +24,7 @@ button { cursor: pointer; }
 .shell { width: min(1180px, calc(100% - 40px)); margin-inline: auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .hidden { display: none !important; }
+[hidden] { display: none !important; }
 
 .announcement { min-height: 34px; padding: 7px 20px; display: flex; align-items: center; justify-content: center; gap: 18px; color: #E5E9EC; background: var(--ink); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .announcement i { width: 3px; height: 3px; border-radius: 50%; background: var(--mist); }
@@ -62,6 +63,8 @@ h1, h2, h3 { letter-spacing: -.035em; }
 .deal-visual { position: relative; min-height: 470px; display: grid; place-items: center; isolation: isolate; }
 .deal-visual::before { content: ""; position: absolute; inset: 24px; z-index: -3; border-radius: 42px; background: linear-gradient(145deg, #DCE3E8, #AEBAC3); transform: rotate(4deg); }
 .deal-visual::after { content: ""; position: absolute; inset: 58px 4px 4px 62px; z-index: -2; border-radius: 38px; background: var(--ink); }
+.hero-offer-media { position: relative; z-index: 1; width: min(360px, 78%); height: 390px; display: grid; place-items: center; overflow: hidden; border-radius: 34px; }
+.hero-offer-media > img { width: 100%; height: 100%; padding: 12px; object-fit: contain; background: var(--white); border-radius: 34px; box-shadow: var(--shadow); }
 .phone-shell { width: 226px; height: 390px; padding: 16px; display: flex; border: 8px solid var(--ink); border-radius: 42px; background: var(--graphite); box-shadow: var(--shadow); transform: rotate(-8deg); }
 .phone-screen { flex: 1; display: grid; place-content: center; text-align: center; border-radius: 25px; color: var(--white); background: linear-gradient(150deg, var(--steel), var(--ink)); }
 .phone-screen span { font-size: 12px; font-weight: 900; letter-spacing: .22em; }
@@ -121,6 +124,11 @@ h1, h2, h3 { letter-spacing: -.035em; }
 .field input:focus, .field select:focus, .field textarea:focus, .results-toolbar select:focus { border-color: var(--steel); box-shadow: 0 0 0 3px rgba(69,93,119,.12); }
 .check-field { display: flex; align-items: center; gap: 10px; color: #4F5D67; font-size: 13px; font-weight: 700; }
 .check-field input { width: 17px; height: 17px; accent-color: var(--steel); }
+.sale-check { padding: 14px 16px; background: #E8EEF3; border-radius: 12px; }
+.sale-percent-field { padding-left: 27px; }
+.settings-divider { margin: 8px 0 17px; padding-top: 19px; border-top: 1px solid var(--line); }
+.settings-divider strong, .settings-divider small { display: block; }
+.settings-divider small { margin-top: 5px; color: #71808B; line-height: 1.5; }
 .results-toolbar { min-height: 49px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .results-toolbar p { margin-bottom: 0; color: #5C6973; font-weight: 750; }
 .results-toolbar select { width: auto; min-width: 220px; background: var(--white); }
@@ -285,6 +293,8 @@ h1, h2, h3 { letter-spacing: -.035em; }
   .hero-copy h1 { font-size: 48px; }
   .deal-visual { min-height: 360px; }
   .deal-visual::before { inset: 24px 0; }
+  .hero-offer-media { height: 320px; }
+  .hero-offer-media > img { height: 320px; }
   .phone-shell { width: 170px; height: 300px; }
   .deal-orbit { width: 290px; }
   .orbit-two { width: 320px; }

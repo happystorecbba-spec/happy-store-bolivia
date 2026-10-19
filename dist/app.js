@@ -22,7 +22,9 @@ const DEFAULT_SETTINGS = {
   storePhone: "64000633",
   ownerName: "Franklin Fernando Condori Gregorio",
   address: "Calle Punata entre San Martín y Lanza, Shopping Garoni, 2do piso, oficina 10-C",
-  note: "Precios referenciales sujetos a variación. Consulta el precio y stock actual antes de comprar."
+  note: "Precios referenciales sujetos a variación. Consulta el precio y stock actual antes de comprar.",
+  heroDiscountPercent: 20,
+  heroImage: ""
 };
 
 const config = window.HAPPY_STORE_CONFIG || {};
@@ -90,12 +92,15 @@ function escapeHTML(value = "") {
 }
 
 function isOffer(product) {
-  return product.price !== null && product.price !== "" && Number(product.comparePrice) > Number(product.price) && Number(product.price) >= 0;
+  const priceDiscount = product.price !== null && product.price !== "" && Number(product.comparePrice) > Number(product.price) && Number(product.price) >= 0;
+  return Boolean(product.onSale ?? priceDiscount) && discount(product) > 0;
 }
 
 function discount(product) {
-  if (!isOffer(product)) return 0;
-  return Math.round((1 - Number(product.price) / Number(product.comparePrice)) * 100);
+  const explicit = Math.round(Number(product.discountPercent || 0));
+  if (explicit > 0) return Math.min(99, explicit);
+  if (product.price === null || product.price === "" || Number(product.comparePrice) <= Number(product.price)) return 0;
+  return Math.max(0, Math.min(99, Math.round((1 - Number(product.price) / Number(product.comparePrice)) * 100)));
 }
 
 function stockInfo(product) {
@@ -109,22 +114,28 @@ function stockInfo(product) {
 }
 
 function fromDbProduct(row) {
+  const price = row.price === null ? null : Number(row.price);
+  const comparePrice = row.compare_price === null ? null : Number(row.compare_price);
+  const calculatedDiscount = price !== null && comparePrice > price ? Math.round((1 - price / comparePrice) * 100) : 0;
   return {
     id: row.id,
     name: row.name || "",
     brand: row.brand || "",
     category: row.category || "",
-    price: row.price === null ? null : Number(row.price),
-    comparePrice: row.compare_price === null ? null : Number(row.compare_price),
+    price,
+    comparePrice,
     stock: row.stock === null ? null : Number(row.stock),
     image: row.image_url || "",
     description: row.description || "",
     featured: Boolean(row.featured),
+    onSale: typeof row.on_sale === "boolean" ? row.on_sale : calculatedDiscount > 0,
+    discountPercent: row.discount_percent === null || row.discount_percent === undefined ? calculatedDiscount : Number(row.discount_percent),
     createdAt: row.created_at || new Date().toISOString()
   };
 }
 
 function toDbProduct(product) {
+  const saleActive = Boolean(product.onSale ?? (product.price !== null && product.price !== "" && Number(product.comparePrice) > Number(product.price)));
   return {
     id: product.id,
     name: product.name,
@@ -135,7 +146,9 @@ function toDbProduct(product) {
     stock: product.stock === null || product.stock === "" ? null : Math.max(0, Number(product.stock)),
     image_url: product.image || null,
     description: product.description || null,
-    featured: Boolean(product.featured)
+    featured: Boolean(product.featured),
+    on_sale: saleActive,
+    discount_percent: saleActive ? Math.max(1, Math.min(99, discount(product))) : 0
   };
 }
 
@@ -203,7 +216,9 @@ function fromDbSettings(row = {}) {
     storePhone: row.store_phone || DEFAULT_SETTINGS.storePhone,
     ownerName: row.owner_name || DEFAULT_SETTINGS.ownerName,
     address: row.address || DEFAULT_SETTINGS.address,
-    note: row.catalog_note || DEFAULT_SETTINGS.note
+    note: row.catalog_note || DEFAULT_SETTINGS.note,
+    heroDiscountPercent: Math.max(1, Math.min(99, Number(row.hero_discount_percent || DEFAULT_SETTINGS.heroDiscountPercent))),
+    heroImage: row.hero_image_url || ""
   };
 }
 
@@ -219,6 +234,8 @@ function toDbSettings(settings) {
     owner_name: settings.ownerName,
     address: settings.address,
     catalog_note: settings.note,
+    hero_discount_percent: Math.max(1, Math.min(99, Number(settings.heroDiscountPercent || DEFAULT_SETTINGS.heroDiscountPercent))),
+    hero_image_url: settings.heroImage || null,
     updated_at: new Date().toISOString()
   };
 }
@@ -389,6 +406,8 @@ function renderAdmin() {
   $("#setting-owner").value = state.settings.ownerName || "";
   $("#setting-address").value = state.settings.address || "";
   $("#setting-note").value = state.settings.note || "";
+  $("#setting-hero-discount").value = state.settings.heroDiscountPercent || DEFAULT_SETTINGS.heroDiscountPercent;
+  $("#setting-hero-image").value = state.settings.heroImage || "";
 }
 
 function orderStatusOptions(selected) {
@@ -692,6 +711,7 @@ function shareProduct(id) {
 
 function resetForm() {
   $("#product-form").reset();
+  syncSaleControls("product");
 }
 
 function editProduct(id) {
@@ -706,6 +726,9 @@ function editProduct(id) {
   $("#edit-product-stock").value = product.stock ?? "";
   $("#edit-product-image").value = product.image || "";
   $("#edit-product-description").value = product.description || "";
+  $("#edit-product-on-sale").checked = isOffer(product);
+  $("#edit-product-discount-percent").value = isOffer(product) ? discount(product) : "";
+  syncSaleControls("edit-product");
   $("#edit-product-featured").checked = Boolean(product.featured);
   $("#edit-product-modal").classList.add("open");
   $("#edit-product-modal").setAttribute("aria-hidden", "false");
@@ -766,6 +789,28 @@ function renderSettings() {
   $("#contact-address").textContent = state.settings.address;
   const whatsapp = state.settings.whatsapp.replace(/\D/g, "");
   $("#contact-whatsapp").href = `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hola, quiero consultar sobre los productos de Happy Store.")}`;
+  const heroPercent = Math.max(1, Math.min(99, Number(state.settings.heroDiscountPercent || DEFAULT_SETTINGS.heroDiscountPercent)));
+  $("#hero-offer-tag").textContent = `-${heroPercent}%`;
+  $("#hero-offer-placeholder-percent").textContent = `${heroPercent}%`;
+  const heroImage = $("#hero-offer-image");
+  const heroPlaceholder = $("#hero-offer-placeholder");
+  if (state.settings.heroImage) {
+    heroImage.src = state.settings.heroImage;
+    heroImage.hidden = false;
+    heroPlaceholder.hidden = true;
+  } else {
+    heroImage.removeAttribute("src");
+    heroImage.hidden = true;
+    heroPlaceholder.hidden = false;
+  }
+}
+
+function syncSaleControls(prefix) {
+  const checked = $(`#${prefix}-on-sale`).checked;
+  const percentage = $(`#${prefix}-discount-percent`);
+  percentage.disabled = !checked;
+  percentage.required = checked;
+  if (!checked) percentage.value = "";
 }
 
 function renderAll() {
@@ -794,6 +839,8 @@ $("#product-form").addEventListener("submit", async event => {
     stock: $("#product-stock").value === "" ? null : Math.max(0, Number($("#product-stock").value)),
     image: imageUrl,
     description: $("#product-description").value.trim(),
+    onSale: $("#product-on-sale").checked,
+    discountPercent: $("#product-on-sale").checked ? Number($("#product-discount-percent").value) : 0,
     featured: $("#product-featured").checked,
     createdAt: new Date().toISOString()
   };
@@ -829,6 +876,8 @@ $("#edit-product-form").addEventListener("submit", async event => {
     stock: $("#edit-product-stock").value === "" ? null : Math.max(0, Number($("#edit-product-stock").value)),
     image: imageUrl,
     description: $("#edit-product-description").value.trim(),
+    onSale: $("#edit-product-on-sale").checked,
+    discountPercent: $("#edit-product-on-sale").checked ? Number($("#edit-product-discount-percent").value) : 0,
     featured: $("#edit-product-featured").checked,
     createdAt: existing.createdAt
   };
@@ -880,6 +929,13 @@ $("#order-form").addEventListener("submit", async event => {
 
 $("#settings-form").addEventListener("submit", async event => {
   event.preventDefault();
+  const heroImageFile = $("#setting-hero-image-file").files?.[0];
+  const previousHeroImage = state.settings.heroImage || "";
+  let heroImage = $("#setting-hero-image").value.trim();
+  if (heroImageFile) {
+    try { heroImage = await uploadProductImage(heroImageFile, "site-settings/hero-offer"); }
+    catch (error) { return showToast(error.message || "No se pudo subir la imagen principal."); }
+  }
   const settings = {
     id: 1,
     whatsapp: $("#setting-whatsapp").value.trim(),
@@ -890,15 +946,22 @@ $("#settings-form").addEventListener("submit", async event => {
     storePhone: $("#setting-phone").value.trim(),
     ownerName: $("#setting-owner").value.trim(),
     address: $("#setting-address").value.trim(),
-    note: $("#setting-note").value.trim()
+    note: $("#setting-note").value.trim(),
+    heroDiscountPercent: Math.max(1, Math.min(99, Number($("#setting-hero-discount").value || DEFAULT_SETTINGS.heroDiscountPercent))),
+    heroImage
   };
   if (db) {
     const { error } = await db.from("store_settings").upsert(toDbSettings(settings));
     if (error) return showToast("No se pudo guardar la configuración.");
+    if (heroImageFile && previousHeroImage && previousHeroImage !== heroImage) {
+      const previousPath = storageObjectPath(previousHeroImage);
+      if (previousPath) await db.storage.from(PRODUCT_BUCKET).remove([previousPath]);
+    }
   }
   state.settings = settings;
   saveLocal();
   renderSettings();
+  $("#setting-hero-image-file").value = "";
   showToast("Configuración guardada.");
 });
 
@@ -927,6 +990,8 @@ $("#search-input").addEventListener("input", event => { state.query = event.targ
 $("#category-filter").addEventListener("change", event => { state.category = event.target.value; state.page = 1; renderCatalog(); });
 $("#brand-filter").addEventListener("change", event => { state.brand = event.target.value; state.page = 1; renderCatalog(); });
 $("#offer-filter").addEventListener("change", event => { state.offersOnly = event.target.checked; state.page = 1; renderCatalog(); });
+$("#product-on-sale").addEventListener("change", () => syncSaleControls("product"));
+$("#edit-product-on-sale").addEventListener("change", () => syncSaleControls("edit-product"));
 $("#sort-select").addEventListener("change", event => { state.sort = event.target.value; renderCatalog(); });
 $("#clear-filters").addEventListener("click", () => {
   state.query = state.category = state.brand = "";

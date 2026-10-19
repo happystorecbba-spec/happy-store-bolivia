@@ -284,10 +284,8 @@
         <section class="admin-card">
           <div class="admin-card-heading">
             <div><span class="eyebrow">PRODUCTOS</span><h2 id="form-title">Añadir producto</h2></div>
-            <button id="cancel-edit" class="text-button hidden" type="button">Cancelar edición</button>
           </div>
           <form id="product-form" class="product-form">
-            <input id="product-id" type="hidden">
             <label class="field field-wide"><span>Nombre del producto *</span><input id="product-name" required placeholder="Ej. Smartphone Nova X"></label>
             <label class="field"><span>Marca *</span><input id="product-brand" required placeholder="Ej. Xiaomi"></label>
             <label class="field"><span>Categoría *</span><input id="product-category" required placeholder="Ej. Smartphones"></label>
@@ -357,6 +355,34 @@
     <div class="modal-panel">
       <button class="modal-close" type="button" aria-label="Cerrar" data-close-modal>×</button>
       <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <div id="edit-product-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="edit-product-title">
+    <div class="modal-backdrop" data-close-edit-modal></div>
+    <div class="modal-panel edit-modal-panel">
+      <button class="modal-close" type="button" aria-label="Cerrar edición" data-close-edit-modal>×</button>
+      <div class="edit-modal-heading">
+        <span class="eyebrow">INVENTARIO</span>
+        <h2 id="edit-product-title">Editar producto</h2>
+        <p>Actualiza la información y guarda los cambios sin salir del inventario.</p>
+      </div>
+      <form id="edit-product-form" class="product-form edit-product-form">
+        <label class="field field-wide"><span>Nombre del producto *</span><input id="edit-product-name" required></label>
+        <label class="field"><span>Marca *</span><input id="edit-product-brand" required></label>
+        <label class="field"><span>Categoría *</span><input id="edit-product-category" required></label>
+        <label class="field"><span>Precio actual (Bs)</span><input id="edit-product-price" min="0" step="0.01" type="number" placeholder="Déjalo vacío para consultar"></label>
+        <label class="field"><span>Precio anterior (Bs)</span><input id="edit-product-compare" min="0" step="0.01" type="number" placeholder="Opcional"></label>
+        <label class="field"><span>Stock exacto (unidades)</span><input id="edit-product-stock" min="0" step="1" type="number" placeholder="Déjalo vacío si falta confirmar"></label>
+        <label class="field"><span>Reemplazar fotografía</span><input id="edit-product-image-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <label class="field"><span>URL guardada en Supabase</span><input id="edit-product-image" type="url" readonly></label>
+        <label class="field field-wide"><span>Descripción</span><textarea id="edit-product-description" rows="4"></textarea></label>
+        <label class="check-field field-wide"><input id="edit-product-featured" type="checkbox"><span>Mostrar como producto destacado</span></label>
+        <div class="modal-actions field-wide">
+          <button class="button button-ghost-dark" type="button" data-close-edit-modal>Cancelar</button>
+          <button class="button button-primary" type="submit">Guardar cambios</button>
+        </div>
+      </form>
     </div>
   </div>
 

@@ -691,30 +691,34 @@ function shareProduct(id) {
 }
 
 function resetForm() {
-  state.editingId = null;
   $("#product-form").reset();
-  $("#product-id").value = "";
-  $("#form-title").textContent = "Añadir producto";
-  $("#cancel-edit").classList.add("hidden");
 }
 
 function editProduct(id) {
   const product = state.products.find(item => item.id === id);
   if (!product) return;
   state.editingId = id;
-  $("#product-id").value = id;
-  $("#product-name").value = product.name;
-  $("#product-brand").value = product.brand;
-  $("#product-category").value = product.category;
-  $("#product-price").value = product.price;
-  $("#product-compare").value = product.comparePrice || "";
-  $("#product-stock").value = product.stock ?? "";
-  $("#product-image").value = product.image || "";
-  $("#product-description").value = product.description || "";
-  $("#product-featured").checked = Boolean(product.featured);
-  $("#form-title").textContent = "Editar producto";
-  $("#cancel-edit").classList.remove("hidden");
-  $("#product-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#edit-product-name").value = product.name;
+  $("#edit-product-brand").value = product.brand;
+  $("#edit-product-category").value = product.category;
+  $("#edit-product-price").value = product.price ?? "";
+  $("#edit-product-compare").value = product.comparePrice ?? "";
+  $("#edit-product-stock").value = product.stock ?? "";
+  $("#edit-product-image").value = product.image || "";
+  $("#edit-product-description").value = product.description || "";
+  $("#edit-product-featured").checked = Boolean(product.featured);
+  $("#edit-product-modal").classList.add("open");
+  $("#edit-product-modal").setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  setTimeout(() => $("#edit-product-name").focus(), 0);
+}
+
+function closeEditProductModal() {
+  $("#edit-product-modal").classList.remove("open");
+  $("#edit-product-modal").setAttribute("aria-hidden", "true");
+  $("#edit-product-form").reset();
+  state.editingId = null;
+  document.body.style.overflow = "";
 }
 
 async function deleteProduct(id) {
@@ -773,9 +777,7 @@ function renderAll() {
 
 $("#product-form").addEventListener("submit", async event => {
   event.preventDefault();
-  const wasEditing = Boolean(state.editingId);
-  const existing = state.products.find(item => item.id === state.editingId);
-  const productId = state.editingId || crypto.randomUUID();
+  const productId = crypto.randomUUID();
   const imageFile = $("#product-image-file").files?.[0];
   let imageUrl = $("#product-image").value.trim();
   if (imageFile) {
@@ -793,23 +795,57 @@ $("#product-form").addEventListener("submit", async event => {
     image: imageUrl,
     description: $("#product-description").value.trim(),
     featured: $("#product-featured").checked,
-    createdAt: existing?.createdAt || new Date().toISOString()
+    createdAt: new Date().toISOString()
   };
   if (db) {
     const { data, error } = await db.from("products").upsert(toDbProduct(product)).select().single();
     if (error) return showToast("No se pudo guardar. Revisa tu sesión y la conexión.");
     Object.assign(product, fromDbProduct(data));
-    if (imageFile && existing?.image && existing.image !== product.image) {
+  }
+  state.products.unshift(product);
+  saveLocal();
+  resetForm();
+  renderAll();
+  showToast("Producto guardado.");
+});
+
+$("#edit-product-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const existing = state.products.find(item => item.id === state.editingId);
+  if (!existing) return showToast("No se encontró el producto que quieres editar.");
+  const imageFile = $("#edit-product-image-file").files?.[0];
+  let imageUrl = $("#edit-product-image").value.trim();
+  if (imageFile) {
+    try { imageUrl = await uploadProductImage(imageFile, existing.id); }
+    catch (error) { return showToast(error.message || "No se pudo subir la fotografía."); }
+  }
+  const product = {
+    id: existing.id,
+    name: $("#edit-product-name").value.trim(),
+    brand: $("#edit-product-brand").value.trim(),
+    category: $("#edit-product-category").value.trim(),
+    price: $("#edit-product-price").value === "" ? null : Number($("#edit-product-price").value),
+    comparePrice: $("#edit-product-compare").value === "" ? null : Number($("#edit-product-compare").value),
+    stock: $("#edit-product-stock").value === "" ? null : Math.max(0, Number($("#edit-product-stock").value)),
+    image: imageUrl,
+    description: $("#edit-product-description").value.trim(),
+    featured: $("#edit-product-featured").checked,
+    createdAt: existing.createdAt
+  };
+  if (db) {
+    const { data, error } = await db.from("products").upsert(toDbProduct(product)).select().single();
+    if (error) return showToast("No se pudo actualizar. Revisa tu sesión y la conexión.");
+    Object.assign(product, fromDbProduct(data));
+    if (imageFile && existing.image && existing.image !== product.image) {
       const previousPath = storageObjectPath(existing.image);
       if (previousPath) await db.storage.from(PRODUCT_BUCKET).remove([previousPath]);
     }
   }
-  if (wasEditing) state.products = state.products.map(item => item.id === product.id ? product : item);
-  else state.products.unshift(product);
+  state.products = state.products.map(item => item.id === product.id ? product : item);
   saveLocal();
-  resetForm();
+  closeEditProductModal();
   renderAll();
-  showToast(wasEditing ? "Producto actualizado." : "Producto guardado.");
+  showToast("Producto actualizado.");
 });
 
 $("#order-form").addEventListener("submit", async event => {
@@ -921,6 +957,7 @@ document.addEventListener("click", event => {
   const pageButton = event.target.closest("[data-page-number]");
   if (pageButton) { state.page = Number(pageButton.dataset.pageNumber); renderCatalog(); window.scrollTo({ top: $(".catalog-layout").offsetTop - 100, behavior: "smooth" }); }
   if (event.target.closest("[data-close-modal]")) closeModal();
+  if (event.target.closest("[data-close-edit-modal]")) closeEditProductModal();
 });
 
 document.addEventListener("change", event => {
@@ -932,7 +969,6 @@ $(".menu-toggle").addEventListener("click", event => {
   const open = $(".primary-nav").classList.toggle("open");
   event.currentTarget.setAttribute("aria-expanded", String(open));
 });
-$("#cancel-edit").addEventListener("click", resetForm);
 $("#export-data").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify({ products: state.products, orders: state.orders, settings: state.settings }, null, 2)], { type: "application/json" });
   const link = document.createElement("a");
@@ -971,7 +1007,11 @@ $("#import-data").addEventListener("change", event => {
 });
 
 window.addEventListener("hashchange", route);
-document.addEventListener("keydown", event => { if (event.key === "Escape") closeModal(); });
+document.addEventListener("keydown", event => {
+  if (event.key !== "Escape") return;
+  closeModal();
+  closeEditProductModal();
+});
 
 async function init() {
   if (db) {

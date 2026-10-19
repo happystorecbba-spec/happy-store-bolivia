@@ -244,6 +244,13 @@ h1, h2, h3 { letter-spacing: -.035em; }
 .modal-details p { color: #5D6A74; line-height: 1.7; }
 .modal-price { margin: 24px 0; font-size: 30px; font-weight: 900; }
 .modal-details .button { width: 100%; margin-top: 8px; }
+.edit-modal-panel { width: min(780px, 100%); padding: 38px; }
+.edit-modal-heading { padding-right: 48px; }
+.edit-modal-heading h2 { margin: 4px 0 8px; font-size: 32px; }
+.edit-modal-heading p { margin: 0 0 26px; color: #64717B; line-height: 1.55; }
+.edit-product-form { padding-top: 4px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 8px; }
+.modal-actions .button { min-width: 170px; }
 .toast { position: fixed; z-index: 140; left: 50%; bottom: 26px; padding: 13px 18px; color: var(--white); background: var(--ink); border-radius: 999px; box-shadow: var(--shadow); font-size: 13px; font-weight: 750; opacity: 0; pointer-events: none; transform: translate(-50%, 20px); transition: .24s ease; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
@@ -310,6 +317,11 @@ h1, h2, h3 { letter-spacing: -.035em; }
   .modal-product { grid-template-columns: 1fr; }
   .modal-media { min-height: 300px; }
   .modal-details { padding: 34px 24px 26px; }
+  .edit-modal-panel { padding: 30px 20px 22px; }
+  .edit-modal-heading { padding-right: 42px; }
+  .edit-product-form { grid-template-columns: 1fr; }
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .button { width: 100%; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .footer-brand { grid-column: 1 / -1; }
   .footer-grid > div:last-child { grid-column: auto; }
